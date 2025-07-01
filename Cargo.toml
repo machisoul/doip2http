@@ -14,3 +14,7 @@ tracing-subscriber = "0.3"
 [[bin]]
 name = 'axum-demo'
 path = "src/demo/axum.rs"
+
+[[bin]]
+name = 'doip2http'
+path = "src/main.rs"
