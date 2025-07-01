@@ -7,22 +7,7 @@ use std::thread::sleep_ms;
 use uds_client::UdsClient;
 
 fn doip_test() {
-  let mut doip_client = DoipClient::new("10.113.129.22".to_string());
-
-  let uds_msg = vec![
-    0x0e, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff,
-  ];
-
-  if doip_client.is_connected() {
-    match doip_client.send_and_receive(
-      VehicleConnectionPayloadType::RoutingActivationRequest as u16,
-      Some(&uds_msg),
-    ) {
-      Ok(response) => println!("Response: {:x?}", response),
-      Err(e) => println!("Error: {}", e),
-    }
-    sleep_ms(5000);
-  }
+  let mut uds_client = UdsClient::new("192.168.1.78".to_string(), 0x0e80);
 }
 
 fn main() {

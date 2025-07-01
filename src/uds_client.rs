@@ -1,3 +1,5 @@
+use crate::doip_client::DEFAULT_ACTIVATION_RESERVED;
+use crate::doip_client::DEFAULT_ACTIVATION_TYPE;
 use crate::doip_client::DiagnosticPayloadType;
 use crate::doip_client::DoipClient;
 use crate::doip_client::VehicleConnectionPayloadType;
@@ -59,98 +61,39 @@ pub static UDS_SERVICE_SET: Lazy<HashSet<u8>> = Lazy::new(|| {
   ])
 });
 
-fn is_service_defined(service_set: &HashSet<u8>, service_id: u8) -> bool {
-  service_set.contains(&service_id)
-}
-
 pub struct UdsClient {
   doip_client: Option<DoipClient>,
   source_address: u16,
-  target_address: Vec<u16>,
 }
 
 impl UdsClient {
   pub fn new(ecu_ip: String, source_address: u16) -> Self {
-    Self {
-      doip_client: Some(DoipClient::new(ecu_ip)),
-      source_address: source_address,
-      target_address: Vec::new(),
-    }
-  }
+    let mut doip_client = DoipClient::new(ecu_ip);
+    if doip_client.is_connected() {
+      let mut uds_msg = source_address.to_be_bytes().to_vec();
+      uds_msg.push(DEFAULT_ACTIVATION_TYPE);
+      uds_msg.extend_from_slice(&DEFAULT_ACTIVATION_RESERVED.to_be_bytes());
 
-  pub async fn routing_active(&mut self, target_address: u16) -> Result<(), Error> {
-    // Check if DoIP client exists and connected
-    let doip_client = match self.doip_client.as_mut() {
-      Some(client) if client.is_connected() => client,
-      _ => {
-        return Err(Error::new(ErrorKind::NotConnected, "Not connected to ECU"));
-      }
-    };
-
-    // Build routing activation payload according to DoIP spec
-    // Logical Address: 2 bytes (big endian)
-    // Routing Activation Type: 1 byte (0x00 default)
-    // Reserved: 1 byte (0x00)
-    let mut payload = Vec::with_capacity(4);
-    payload.push((target_address >> 8) as u8); // high byte
-    payload.push((target_address & 0xFF) as u8); // low byte
-    payload.push(0x00); // Routing Activation Type: default
-    payload.push(0x00); // Reserved
-
-    // Send routing activation message and wait for response
-    // Assuming DoipClient has a send_and_receive method that returns Result<Vec<u8>, Error>
-    let response = doip_client
-      .send_and_receive(
+      match doip_client.send_and_receive(
         VehicleConnectionPayloadType::RoutingActivationRequest as u16,
-        Some(&payload),
-      )
-      .await?;
-
-    // Check the response to confirm successful activation
-    // According to DoIP, successful response payload starts with 0x10 (Routing Activation Response type)
-    // and has a result byte (0x00 means success)
-    // Here, we do a minimal check assuming response is well-formed
-
-    if response.len() < 5 {
-      return Err(Error::new(
-        ErrorKind::InvalidData,
-        "Invalid routing activation response",
-      ));
+        Some(&uds_msg),
+      ) {
+        Ok(response) => {
+          println!("Routing activation response: {:x?}", response);
+        }
+        Err(e) => {
+          println!("Error: {}", e);
+          return Self {
+            doip_client: None,
+            source_address: source_address,
+          };
+        }
+      }
     }
-
-    // response[0..2] = protocol version & inverse protocol version (usually 0x02 0x01)
-    // response[2..4] = payload type (should be RoutingActivationResponse)
-    // response[4] = routing activation result (0x00 means success)
-
-    const ROUTING_ACTIVATION_RESPONSE_PAYLOAD_TYPE: u16 =
-      VehicleConnectionPayloadType::RoutingActivationResponse as u16;
-
-    let payload_type = ((response[2] as u16) << 8) | (response[3] as u16);
-    let routing_result = response[4];
-
-    if payload_type != ROUTING_ACTIVATION_RESPONSE_PAYLOAD_TYPE {
-      return Err(Error::new(
-        ErrorKind::InvalidData,
-        "Unexpected payload type in routing activation response",
-      ));
+    Self {
+      doip_client: Some(doip_client),
+      source_address: source_address,
     }
-
-    if routing_result != 0x00 {
-      return Err(Error::new(
-        ErrorKind::Other,
-        format!(
-          "Routing activation failed with code: 0x{:02X}",
-          routing_result
-        ),
-      ));
-    }
-
-    // Append the successfully activated address if not already present
-    if !self.target_address.contains(&target_address) {
-      self.target_address.push(target_address);
-    }
-
-    Ok(())
   }
 
   pub async fn doip(&mut self, uds_data: Option<&[u8]>) -> Result<Vec<u8>, Error> {

@@ -5,6 +5,9 @@ use std::time::Duration;
 static PROTO_VERSION: u8 = 0x02;
 static INVER_PROTO_VERSION: u8 = 0xfd;
 
+pub static DEFAULT_ACTIVATION_TYPE: u8 = 0x00;
+pub static DEFAULT_ACTIVATION_RESERVED: u32 = 0x00;
+
 #[repr(u16)]
 pub enum VehicleConnectionPayloadType {
   GenericNegativeAck = 0x0000,
