@@ -1,7 +1,6 @@
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
-use tokio::io::AsyncWriteExt;
 
 static PROTO_VERSION: u8 = 0x02;
 static INVER_PROTO_VERSION: u8 = 0xfd;
