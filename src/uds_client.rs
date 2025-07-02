@@ -3,6 +3,7 @@ use crate::doip_client::DEFAULT_ACTIVATION_TYPE;
 use crate::doip_client::DiagnosticPayloadType;
 use crate::doip_client::DoipClient;
 use crate::doip_client::VehicleConnectionPayloadType;
+use log::{debug, error, info, trace, warn};
 use once_cell::sync::Lazy;
 use std::collections::HashSet;
 use std::io::{Error, ErrorKind};
@@ -79,10 +80,10 @@ impl UdsClient {
         Some(&uds_msg),
       ) {
         Ok(response) => {
-          println!("Routing activation response: {:x?}", response);
+          info!("Routing activation response: {:x?}", response);
         }
         Err(e) => {
-          println!("Error: {}", e);
+          error!("Error: {}", e);
           return Self {
             doip_client: None,
             source_address: source_address,

@@ -1,6 +1,6 @@
+use log::{debug, error, info, trace, warn};
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::time::Duration;
 
 static PROTO_VERSION: u8 = 0x02;
 static INVER_PROTO_VERSION: u8 = 0xfd;
@@ -85,14 +85,20 @@ impl DoipClient {
       let message = encode_doip_message(payload_type, uds_data);
       stream.write_all(&message)?; // send the message completely
 
+      info!("DoipClient: sent raw data: {:x?}", message);
+
       let mut header = [0u8; 8]; // DoIP general header is 8 bytes
       stream.read_exact(&mut header)?; // read header fully
-      println!("Header: {:x?}", header);
 
       // Parse header: protocol version, inverse version, payload type, payload length
       let payload_len = u32::from_be_bytes([header[4], header[5], header[6], header[7]]);
       let mut payload = vec![0u8; payload_len as usize];
       stream.read_exact(&mut payload)?; // read the payload fully
+
+      let mut raw = Vec::with_capacity(8 + payload.len());
+      raw.extend_from_slice(&header);
+      raw.extend_from_slice(&payload);
+      info!("DoipClient: received raw data: {:x?}", raw);
 
       Ok(payload) // return the response payload
     } else {
