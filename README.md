@@ -43,7 +43,7 @@ Supports the following UDS services:
 ### 1. Clone the Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/machisoul/doip2http.git
 cd doip2http
 ```
 

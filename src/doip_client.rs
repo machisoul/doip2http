@@ -1,12 +1,18 @@
-use log::{debug, error, info, trace, warn};
+use log::{error, info, warn};
 use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::net::{SocketAddr, TcpStream};
+use std::time::Duration;
 
 static PROTO_VERSION: u8 = 0x02;
 static INVER_PROTO_VERSION: u8 = 0xfd;
 
 pub static DEFAULT_ACTIVATION_TYPE: u8 = 0x00;
 pub static DEFAULT_ACTIVATION_RESERVED: u32 = 0x00;
+
+// Default connection timeout in seconds
+pub static DEFAULT_CONNECTION_TIMEOUT_SECS: u64 = 5;
+// Default read/write timeout in seconds
+pub static DEFAULT_IO_TIMEOUT_SECS: u64 = 10;
 
 #[repr(u16)]
 pub enum VehicleConnectionPayloadType {
@@ -60,15 +66,53 @@ fn encode_doip_message(payload_type: u16, uds_msg: Option<&[u8]>) -> Vec<u8> {
 
 impl DoipClient {
   pub fn new(ecu_ip: String) -> Self {
-    match TcpStream::connect(format!("{}:13400", ecu_ip)) {
-      Ok(stream) => Self {
-        stream: Some(stream),
-        connected: true,
-      },
-      Err(_) => Self {
-        stream: None,
-        connected: false,
-      },
+    let address = format!("{}:13400", ecu_ip);
+    info!(
+      "DoipClient: Attempting to connect to {} with timeout {:?}",
+      address, DEFAULT_CONNECTION_TIMEOUT_SECS
+    );
+
+    match address.parse::<SocketAddr>() {
+      Ok(socket_addr) => {
+        match TcpStream::connect_timeout(
+          &socket_addr,
+          Duration::from_secs(DEFAULT_CONNECTION_TIMEOUT_SECS),
+        ) {
+          Ok(stream) => {
+            info!("DoipClient: Successfully connected to {}", address);
+            // Set read and write timeouts for the stream
+            if let Err(e) =
+              stream.set_read_timeout(Some(Duration::from_secs(DEFAULT_IO_TIMEOUT_SECS)))
+            {
+              warn!("DoipClient: Failed to set read timeout: {}", e);
+            }
+            if let Err(e) =
+              stream.set_write_timeout(Some(Duration::from_secs(DEFAULT_IO_TIMEOUT_SECS)))
+            {
+              warn!("DoipClient: Failed to set write timeout: {}", e);
+            }
+
+            Self {
+              stream: Some(stream),
+              connected: true,
+            }
+          }
+          Err(e) => {
+            error!("DoipClient: Failed to connect to {}: {}", address, e);
+            Self {
+              stream: None,
+              connected: false,
+            }
+          }
+        }
+      }
+      Err(e) => {
+        error!("DoipClient: Invalid address format {}: {}", address, e);
+        Self {
+          stream: None,
+          connected: false,
+        }
+      }
     }
   }
 
