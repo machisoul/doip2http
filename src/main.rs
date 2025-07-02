@@ -1,24 +1,23 @@
 mod common;
 mod demo;
+mod doip2http;
 mod doip_client;
 mod uds_client;
-use log::{debug, error, info, trace, warn};
 
-use common::log::init_logger;
-use demo::console_input::{prompt_ip, prompt_source_address};
+use std::env;
 
-use uds_client::UdsClient;
+static DEFAULT_PORT: u16 = 8080;
 
-fn doip_test() {
-  info!("Starting DoIP test");
-  let ip = prompt_ip();
-  let source_address = prompt_source_address();
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+  // Get port from environment variable or use default
+  let port = env::var("PORT")
+    .unwrap_or_else(|_| DEFAULT_PORT.to_string())
+    .parse::<u16>()
+    .unwrap_or(DEFAULT_PORT);
 
-  let mut uds_client = UdsClient::new(ip.to_string(), source_address);
-  std::thread::sleep_ms(5000);
-}
+  // Start the HTTP server
+  doip2http::run_server(port).await?;
 
-fn main() {
-  init_logger();
-  doip_test();
+  Ok(())
 }

@@ -97,7 +97,14 @@ impl UdsClient {
     }
   }
 
-  pub async fn doip(&mut self, uds_data: Option<&[u8]>) -> Result<Vec<u8>, Error> {
+  pub fn is_connected(&self) -> bool {
+    match &self.doip_client {
+      Some(client) => client.is_connected(),
+      None => false,
+    }
+  }
+
+  pub fn doip(&mut self, uds_data: Option<&[u8]>) -> Result<Vec<u8>, Error> {
     if !self.doip_client.as_ref().unwrap().is_connected() {
       return Err(Error::new(ErrorKind::NotConnected, "Not connected to ECU"));
     }
@@ -105,17 +112,12 @@ impl UdsClient {
     let uds =
       uds_data.ok_or_else(|| Error::new(ErrorKind::InvalidInput, "No UDS data provided"))?;
 
-    if let Some(&service_id) = uds.first() {
-      if !UDS_SERVICE_SET.contains(&service_id) {
-        return Err(Error::new(
-          ErrorKind::InvalidData,
-          format!("Unknown UDS service ID: 0x{:02X}", service_id),
-        ));
-      }
-    } else {
+    let service_id = uds[4];
+    if !UDS_SERVICE_SET.contains(&service_id) {
+      warn!("UdsClient: Unknown UDS service ID: 0x{:02X}", service_id);
       return Err(Error::new(
-        ErrorKind::InvalidInput,
-        "UDS data is empty; cannot read first byte",
+        ErrorKind::InvalidData,
+        format!("Unknown UDS service ID: 0x{:02X}", service_id),
       ));
     }
 
