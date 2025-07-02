@@ -1,5 +1,4 @@
 mod common;
-mod demo;
 mod doip2http;
 mod doip_client;
 mod uds_client;

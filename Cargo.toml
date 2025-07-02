@@ -15,9 +15,5 @@ log = "0.4"
 env_logger = "0.11"
 
 [[bin]]
-name = 'axum-demo'
-path = "src/demo/axum.rs"
-
-[[bin]]
 name = 'doip2http'
 path = "src/main.rs"
